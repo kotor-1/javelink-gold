@@ -1,6 +1,6 @@
 ﻿FROM python:3.10-slim
 
-# Install system dependencies
+# システム依存関係をインストール
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libglib2.0-0 \
@@ -8,29 +8,24 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    wget \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# 作業ディレクトリ設定
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
+# 依存関係ファイルをコピー
 COPY requirements.txt .
+
+# Pythonパッケージをインストール
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download YOLO model weights
-RUN mkdir -p models && \
-    wget -q https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8m-pose.pt \
-    -O models/yolov8m-pose.pt
-
-# Copy application code
+# アプリケーションコードをコピー
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p uploads outputs
+# ポート8080を公開（Fly.ioのデフォルト）
+EXPOSE 8080
 
-# Expose port
-EXPOSE 8000
-
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# アプリケーション起動
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
