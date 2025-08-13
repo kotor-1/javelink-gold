@@ -1,26 +1,14 @@
-﻿from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-import cv2
 import numpy as np
-import tempfile
 import os
 import logging
 
 # ロギング設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# YOLOv8の読み込み（オプション）
-try:
-    from ultralytics import YOLO
-    YOLO_AVAILABLE = True
-    logger.info("YOLOv8 is available")
-except ImportError:
-    YOLO_AVAILABLE = False
-    logger.warning("YOLOv8 not found - running in demo mode")
 
 app = FastAPI(title="Javelink Gold - Motion Analysis")
 
@@ -33,201 +21,115 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ヘルスチェックエンドポイント
+# ヘルスチェック
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "yolo_available": YOLO_AVAILABLE}
+    return {"status": "healthy", "service": "Javelink Gold"}
 
-def analyze_video_file(video_path):
-    """動画ファイルを分析（簡易版）"""
-    try:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            return None
-        
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
-        
-        # デモ用のランダム値生成
-        return {
-            "fps": fps,
-            "frames": frame_count,
-            "resolution": f"{width}x{height}",
-            "release_angle": 34.8 + np.random.uniform(-2, 2),
-            "release_speed": 27.5 + np.random.uniform(-1, 1),
-            "release_height": 2.05 + np.random.uniform(-0.1, 0.1),
-            "plant_time": 0.22 + np.random.uniform(-0.02, 0.02),
-            "hip_shoulder_separation": 45 + np.random.uniform(-5, 5),
-            "foot_angle": 12 + np.random.uniform(-3, 3)
-        }
-    except Exception as e:
-        logger.error(f"Video analysis error: {e}")
-        return None
+def analyze_video_demo(filename: str):
+    """デモ用の分析結果を生成"""
+    # ランダムな値を生成（デモ用）
+    return {
+        "filename": filename,
+        "fps": 30,
+        "frames": 150,
+        "resolution": "1920x1080",
+        "release_angle": 34.8 + np.random.uniform(-2, 2),
+        "release_speed": 27.5 + np.random.uniform(-1, 1),
+        "release_height": 2.05 + np.random.uniform(-0.1, 0.1),
+        "plant_time": 0.22 + np.random.uniform(-0.02, 0.02),
+        "hip_shoulder_separation": 45 + np.random.uniform(-5, 5),
+        "foot_angle": 12 + np.random.uniform(-3, 3)
+    }
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return '''
+    return """
     <html>
     <head>
-        <title>Javelink Gold - 投擲動作分析システム</title>
+        <title>Javelink Gold</title>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
-            
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            
             body {
-                font-family: 'Noto Sans JP', sans-serif;
-                background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%);
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #FFD700, #FFA500);
                 min-height: 100vh;
-                position: relative;
-                overflow-x: hidden;
+                display: flex;
+                justify-content: center;
+                align-items: center;
             }
-            
-            body::before {
-                content: "";
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background-image: 
-                    repeating-linear-gradient(45deg, 
-                        transparent, 
-                        transparent 25px, 
-                        rgba(255,255,255,0.05) 25px, 
-                        rgba(255,255,255,0.05) 50px),
-                    repeating-linear-gradient(-45deg, 
-                        transparent, 
-                        transparent 25px, 
-                        rgba(255,255,255,0.03) 25px, 
-                        rgba(255,255,255,0.03) 50px);
-                pointer-events: none;
-            }
-            
             .container {
-                max-width: 900px;
-                margin: 0 auto;
-                padding: 30px;
-                position: relative;
-                z-index: 1;
-            }
-            
-            .main-card {
-                background: rgba(255, 255, 255, 0.95);
-                border-radius: 20px;
+                background: white;
                 padding: 40px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-                position: relative;
-                overflow: hidden;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 500px;
+                width: 90%;
             }
-            
             h1 {
-                font-family: 'Orbitron', monospace;
-                font-weight: 900;
-                font-size: 42px;
+                color: #FF8C00;
                 text-align: center;
-                background: linear-gradient(135deg, #FFD700, #FF8C00);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                text-transform: uppercase;
-                letter-spacing: 3px;
-                margin-bottom: 10px;
-            }
-            
-            .subtitle {
-                text-align: center;
-                color: #666;
-                font-size: 14px;
                 margin-bottom: 30px;
-                font-family: 'Orbitron', monospace;
-                letter-spacing: 2px;
+                font-size: 32px;
             }
-            
             form {
                 display: flex;
                 flex-direction: column;
-                gap: 25px;
+                gap: 20px;
             }
-            
             label {
-                display: block;
                 color: #333;
-                font-weight: 700;
-                margin-bottom: 8px;
-                font-size: 14px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
+                font-weight: bold;
             }
-            
-            input[type="file"], select {
-                width: 100%;
-                padding: 15px;
+            input, select {
+                padding: 12px;
                 border: 2px solid #FFD700;
-                border-radius: 10px;
-                background: white;
+                border-radius: 8px;
                 font-size: 14px;
-                transition: all 0.3s;
             }
-            
             button {
                 background: linear-gradient(135deg, #FFD700, #FFA500);
                 color: white;
                 border: none;
-                padding: 18px;
-                border-radius: 10px;
+                padding: 15px;
+                border-radius: 8px;
                 font-size: 16px;
-                font-weight: 700;
-                font-family: 'Orbitron', monospace;
-                text-transform: uppercase;
-                letter-spacing: 2px;
+                font-weight: bold;
                 cursor: pointer;
-                transition: all 0.3s;
             }
-            
             button:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 10px 30px rgba(255,165,0,0.4);
+                opacity: 0.9;
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="main-card">
-                <h1>Javelink Gold</h1>
-                <p class="subtitle">ADVANCED MOTION ANALYSIS SYSTEM</p>
-                
-                <form action="/api/analyze" method="post" enctype="multipart/form-data">
-                    <div>
-                        <label>📹 動画ファイル</label>
-                        <input type="file" name="file" accept=".mp4,.mov,.avi" required>
-                    </div>
-                    
-                    <div>
-                        <label>📐 撮影アングル</label>
-                        <select name="view" required>
-                            <option value="side">サイドビュー（横から）</option>
-                            <option value="rear">リアビュー（後ろから）</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label>✋ 利き腕</label>
-                        <select name="handedness" required>
-                            <option value="right">右利き</option>
-                            <option value="left">左利き</option>
-                        </select>
-                    </div>
-                    
-                    <button type="submit">分析開始</button>
-                </form>
-            </div>
+            <h1>🎯 Javelink Gold</h1>
+            <form action="/api/analyze" method="post" enctype="multipart/form-data">
+                <div>
+                    <label>動画ファイル</label>
+                    <input type="file" name="file" accept=".mp4,.mov,.avi" required>
+                </div>
+                <div>
+                    <label>撮影アングル</label>
+                    <select name="view" required>
+                        <option value="side">横から</option>
+                        <option value="rear">後ろから</option>
+                    </select>
+                </div>
+                <div>
+                    <label>利き腕</label>
+                    <select name="handedness" required>
+                        <option value="right">右</option>
+                        <option value="left">左</option>
+                    </select>
+                </div>
+                <button type="submit">分析開始</button>
+            </form>
         </div>
     </body>
     </html>
-    '''
+    """
 
 @app.post("/api/analyze")
 async def analyze(
@@ -235,66 +137,50 @@ async def analyze(
     view: str = Form(...),
     handedness: str = Form(...)
 ):
-    # ファイルサイズチェック（10MB制限）
+    # ファイルサイズチェック
     contents = await file.read()
     if len(contents) > 10 * 1024 * 1024:
-        return HTMLResponse("ファイルサイズが大きすぎます（最大10MB）", status_code=413)
+        return HTMLResponse("<h1>ファイルが大きすぎます（最大10MB）</h1>", status_code=413)
     
-    # 一時ファイルに保存
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
-        tmp_file.write(contents)
-        tmp_path = tmp_file.name
+    # デモ分析を実行
+    result = analyze_video_demo(file.filename)
     
-    try:
-        result = analyze_video_file(tmp_path)
-        if not result:
-            result = {
-                "fps": 30,
-                "frames": 150,
-                "resolution": "1920x1080",
-                "release_angle": 34.8,
-                "release_speed": 27.5,
-                "release_height": 2.05,
-                "plant_time": 0.22,
-                "hip_shoulder_separation": 45,
-                "foot_angle": 12
-            }
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-    
-    # 結果表示HTML（簡略版）
-    html = f'''
+    # 結果表示
+    html = f"""
     <html>
     <head>
         <title>分析結果</title>
         <style>
             body {{
-                font-family: 'Noto Sans JP', sans-serif;
+                font-family: Arial, sans-serif;
                 background: linear-gradient(135deg, #FFD700, #FFA500);
-                padding: 30px;
+                padding: 20px;
             }}
             .container {{
-                max-width: 800px;
+                max-width: 600px;
                 margin: 0 auto;
                 background: white;
                 padding: 40px;
                 border-radius: 20px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             }}
             h1 {{
                 color: #FF8C00;
                 text-align: center;
+                margin-bottom: 30px;
             }}
             .metric {{
                 background: #f9f9f9;
-                padding: 20px;
-                margin: 15px 0;
+                padding: 15px;
+                margin: 10px 0;
                 border-radius: 10px;
                 border-left: 4px solid #FFD700;
             }}
+            .label {{
+                color: #666;
+                font-size: 14px;
+            }}
             .value {{
-                font-size: 28px;
+                font-size: 24px;
                 color: #FF8C00;
                 font-weight: bold;
             }}
@@ -312,28 +198,34 @@ async def analyze(
     </head>
     <body>
         <div class="container">
-            <h1>📊 分析結果</h1>
+            <h1>分析結果</h1>
+            <p style="text-align: center; color: #666;">ファイル: {result["filename"]}</p>
             
             <div class="metric">
-                <div>リリース角度</div>
-                <div class="value">{result.get("release_angle", 34.8):.1f}°</div>
+                <div class="label">リリース角度</div>
+                <div class="value">{result["release_angle"]:.1f}°</div>
             </div>
             
             <div class="metric">
-                <div>リリース速度</div>
-                <div class="value">{result.get("release_speed", 27.5):.1f} m/s</div>
+                <div class="label">リリース速度</div>
+                <div class="value">{result["release_speed"]:.1f} m/s</div>
             </div>
             
             <div class="metric">
-                <div>リリース高</div>
-                <div class="value">{result.get("release_height", 2.05):.2f} m</div>
+                <div class="label">リリース高</div>
+                <div class="value">{result["release_height"]:.2f} m</div>
             </div>
             
-            <a href="/">もう一度分析する</a>
+            <div class="metric">
+                <div class="label">ブロック時間</div>
+                <div class="value">{result["plant_time"]:.2f} 秒</div>
+            </div>
+            
+            <a href="/">もう一度分析</a>
         </div>
     </body>
     </html>
-    '''
+    """
     return HTMLResponse(content=html)
 
 if __name__ == "__main__":

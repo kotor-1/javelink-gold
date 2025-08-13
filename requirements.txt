@@ -1,16 +1,5 @@
-﻿# Core Web Framework
-fastapi==0.109.0
+﻿fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
-
-# Computer Vision (Headless for server)
-opencv-python-headless==4.9.0.80
 numpy==1.24.3
-
-# File handling
 aiofiles==23.2.1
-
-# Optional: YOLOv8 (コメントアウト - 必要に応じて有効化)
-# ultralytics==8.1.0
-# torch==2.1.2
-# torchvision==0.16.2
