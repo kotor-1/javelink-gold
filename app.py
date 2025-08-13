@@ -2,91 +2,185 @@
 from fastapi.responses import HTMLResponse
 import uvicorn
 import os
+import io
+import base64
+from PIL import Image
+import numpy as np
 
-app = FastAPI(title="Javelink Gold")
+# メモリ節約設定
+import torch
+torch.set_num_threads(1)
+
+app = FastAPI(title="Javelink YOLO Lite")
+
+# グローバル変数でモデルを保持（初回のみロード）
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        try:
+            from ultralytics import YOLO
+            # 最軽量のnanoモデルを使用
+            model = YOLO('yolov8n-pose.pt')
+            print("YOLOv8n loaded successfully")
+        except Exception as e:
+            print(f"Failed to load YOLO: {e}")
+            model = "failed"
+    return model
+
+def analyze_image(image_bytes):
+    """画像から姿勢を検出（最小処理）"""
+    try:
+        # モデル取得
+        yolo_model = get_model()
+        if yolo_model == "failed" or yolo_model is None:
+            return None
+        
+        # PILで画像を開く
+        image = Image.open(io.BytesIO(image_bytes))
+        
+        # サイズを縮小（メモリ節約）
+        max_size = 640
+        if image.width > max_size or image.height > max_size:
+            image.thumbnail((max_size, max_size))
+        
+        # YOLO推論（1フレームのみ）
+        results = yolo_model(image, verbose=False)
+        
+        if results and len(results) > 0:
+            # キーポイントを取得
+            if results[0].keypoints is not None:
+                keypoints = results[0].keypoints.data
+                if len(keypoints) > 0:
+                    # 簡単な計算（肩と腰の角度など）
+                    kp = keypoints[0].cpu().numpy()
+                    
+                    # 肩の角度を計算（例）
+                    if kp[5][2] > 0.5 and kp[6][2] > 0.5:  # 信頼度チェック
+                        shoulder_angle = np.arctan2(
+                            kp[6][1] - kp[5][1],
+                            kp[6][0] - kp[5][0]
+                        )
+                        return {
+                            "detected": True,
+                            "angle": float(np.degrees(shoulder_angle)),
+                            "confidence": float(kp[5][2])
+                        }
+        
+        return {"detected": False}
+    
+    except Exception as e:
+        print(f"Analysis error: {e}")
+        return None
 
 @app.get("/")
 async def root():
-    html_content = '''
+    return HTMLResponse('''
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Javelink Gold</title>
+        <title>Javelink YOLO Lite</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             body {
                 font-family: Arial, sans-serif;
-                background: linear-gradient(135deg, #FFD700, #FFA500);
+                background: linear-gradient(135deg, #667eea, #764ba2);
                 min-height: 100vh;
                 margin: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
+                padding: 20px;
             }
             .container {
+                max-width: 500px;
+                margin: 0 auto;
                 background: white;
-                padding: 40px;
+                padding: 30px;
                 border-radius: 20px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-                max-width: 500px;
-                width: 90%;
             }
             h1 {
-                color: #FF8C00;
                 text-align: center;
+                color: #333;
+            }
+            .status {
+                text-align: center;
+                padding: 10px;
+                background: #f0f0f0;
+                border-radius: 10px;
+                margin: 20px 0;
             }
             form {
                 display: flex;
                 flex-direction: column;
                 gap: 15px;
             }
-            input, select, button {
+            input, button {
                 padding: 12px;
                 border-radius: 8px;
-                border: 2px solid #FFD700;
-                font-size: 14px;
+                border: 2px solid #ddd;
+                font-size: 16px;
             }
             button {
-                background: linear-gradient(135deg, #FFD700, #FFA500);
+                background: #667eea;
                 color: white;
                 border: none;
                 cursor: pointer;
-                font-weight: bold;
             }
             button:hover {
-                opacity: 0.9;
+                background: #5a67d8;
+            }
+            .warning {
+                background: #fff3cd;
+                color: #856404;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🎯 Javelink Gold</h1>
-            <p style="text-align: center; color: #666;">投擲動作分析システム</p>
+            <h1>🎯 Javelink YOLO Lite</h1>
+            <div class="status">YOLOv8n 最軽量版</div>
+            
             <form action="/analyze" method="post" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".mp4,.mov,.avi" required>
-                <select name="view" required>
-                    <option value="side">横から撮影</option>
-                    <option value="rear">後ろから撮影</option>
-                </select>
-                <select name="handedness" required>
-                    <option value="right">右利き</option>
-                    <option value="left">左利き</option>
-                </select>
-                <button type="submit">分析開始</button>
+                <input type="file" name="file" accept="image/*" required>
+                <button type="submit">画像を分析</button>
             </form>
+            
+            <div class="warning">
+                ⚠️ メモリ制限のため、画像のみ対応（動画は非対応）
+            </div>
         </div>
     </body>
     </html>
-    '''
-    return HTMLResponse(content=html_content)
+    ''')
 
 @app.post("/analyze")
-async def analyze(
-    file: UploadFile = File(...),
-    view: str = Form(...),
-    handedness: str = Form(...)
-):
-    # デモ結果を返す
-    html_content = f'''
+async def analyze(file: UploadFile = File(...)):
+    # ファイルサイズ制限（2MB）
+    contents = await file.read()
+    if len(contents) > 2 * 1024 * 1024:
+        return HTMLResponse("<h1>ファイルが大きすぎます（最大2MB）</h1>")
+    
+    # 画像分析
+    result = analyze_image(contents)
+    
+    # 結果表示
+    if result and result.get("detected"):
+        status = "✅ 姿勢検出成功"
+        details = f"""
+        <div style='background: #d4edda; padding: 20px; border-radius: 10px; color: #155724;'>
+            <h3>検出結果</h3>
+            <p>肩の角度: {result.get('angle', 0):.1f}°</p>
+            <p>信頼度: {result.get('confidence', 0):.2%}</p>
+        </div>
+        """
+    else:
+        status = "❌ 姿勢検出失敗"
+        details = "<p>人物が検出できませんでした</p>"
+    
+    return HTMLResponse(f'''
     <!DOCTYPE html>
     <html>
     <head>
@@ -94,71 +188,62 @@ async def analyze(
         <style>
             body {{
                 font-family: Arial, sans-serif;
-                background: linear-gradient(135deg, #FFD700, #FFA500);
+                background: linear-gradient(135deg, #667eea, #764ba2);
                 padding: 20px;
             }}
             .container {{
-                max-width: 600px;
+                max-width: 500px;
                 margin: 0 auto;
                 background: white;
-                padding: 40px;
+                padding: 30px;
                 border-radius: 20px;
             }}
             h1 {{
-                color: #FF8C00;
                 text-align: center;
-            }}
-            .metric {{
-                background: #f9f9f9;
-                padding: 15px;
-                margin: 10px 0;
-                border-radius: 10px;
-                border-left: 4px solid #FFD700;
-            }}
-            .value {{
-                font-size: 24px;
-                color: #FF8C00;
-                font-weight: bold;
+                color: #333;
             }}
             a {{
                 display: block;
                 text-align: center;
-                margin-top: 30px;
-                padding: 15px;
-                background: #FFD700;
+                margin-top: 20px;
+                padding: 12px;
+                background: #667eea;
                 color: white;
                 text-decoration: none;
-                border-radius: 10px;
+                border-radius: 8px;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>分析結果</h1>
-            <p style="text-align: center;">ファイル: {file.filename}</p>
-            <div class="metric">
-                <div>リリース角度</div>
-                <div class="value">34.8°</div>
-            </div>
-            <div class="metric">
-                <div>リリース速度</div>
-                <div class="value">27.5 m/s</div>
-            </div>
-            <div class="metric">
-                <div>リリース高</div>
-                <div class="value">2.05 m</div>
-            </div>
-            <a href="/">もう一度分析</a>
+            <h1>{status}</h1>
+            {details}
+            <a href="/">もう一度試す</a>
         </div>
     </body>
     </html>
-    '''
-    return HTMLResponse(content=html_content)
+    ''')
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    model_status = "not_loaded"
+    try:
+        m = get_model()
+        if m != "failed" and m is not None:
+            model_status = "loaded"
+    except:
+        pass
+    
+    return {
+        "status": "healthy",
+        "model": model_status,
+        "memory_limit": "512MB"
+    }
 
 if __name__ == "__main__":
+    # 起動時にモデルをロード
+    print("Loading YOLOv8n model...")
+    get_model()
+    
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
