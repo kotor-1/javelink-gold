@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-6">
+                <h1 class="text-3xl font-bold">Javelink Lite</h1>
+                <p class="text-blue-100 mt-2">遶ｶ謚蜉崚礼ｧ大ｭｦ繧偵▽縺ｪ縺舌い繝励Μ</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8">
+            <!-- Upload Form -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">蜍慕判繧｢繝・・繝ｭ繝ｼ繝・/h2>
+                
+                <form id="uploadForm" class="space-y-4">
+                    <!-- File Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            蜍慕判繝輔ぃ繧､繝ｫ
+                        </label>
+                        <input type="file" 
+                               id="videoFile" 
+                               accept=".mp4,.mov,.avi,.webm"
+                               class="block w-full text-sm text-gray-500
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-md file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-blue-50 file:text-blue-700
+                                      hover:file:bg-blue-100"
+                               required>
+                    </div>
+
+                    <!-- View Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            謦ｮ蠖ｱ隕也せ
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="view" value="side" checked
+                                       class="peer sr-only">
+                                <div class="p-4 border-2 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50">
+                                    <div class="font-semibold">讓ｪ・・ide・・/div>
+                                    <div class="text-sm text-gray-600 mt-1">
+                                        謚輔￡謇句・縺ｮ逵滓ｨｪ縺九ｉ縲ょ慍髱｢縺ｫ1m繝槭・繧ｫ繝ｼﾃ・
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="view" value="rear"
+                                       class="peer sr-only">
+                                <div class="p-4 border-2 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50">
+                                    <div class="font-semibold">蠕後ｍ・・ear・・/div>
+                                    <div class="text-sm text-gray-600 mt-1">
+                                        襍ｰ霍ｯ荳ｭ蠢・・逵溷ｾ後ｍ縲ょ屁髫・・繝ｼ繧ｫ繝ｼﾃ・
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Handedness -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            謚輔￡謇・
+                        </label>
+                        <select id="handedness" 
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="right">蜿ｳ謚輔￡</option>
+                            <option value="left">蟾ｦ謚輔￡</option>
+                        </select>
+                    </div>
+
+                    <!-- Scale Method -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            繧ｹ繧ｱ繝ｼ繝ｫ譁ｹ豕・
+                        </label>
+                        <select id="scaleMethod" 
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="marker">繝槭・繧ｫ繝ｼ・域耳螂ｨ・・/option>
+                            <option value="auto">閾ｪ蜍包ｼ郁ｺｫ髟ｷ謗ｨ螳夲ｼ・/option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" 
+                            id="submitBtn"
+                            class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold
+                                   hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                        蛻・梵髢句ｧ・
+                    </button>
+                </form>
+
+                <!-- Progress -->
+                <div id="progressContainer" class="hidden mt-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <svg class="animate-spin h-5 w-5 mr-3 text-blue-600" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span class="text-blue-700">蜃ｦ逅・ｸｭ... 縺励・繧峨￥縺雁ｾ・■縺上□縺輔＞</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Container -->
+            <div id="resultsContainer" class="hidden">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-semibold mb-4">蛻・梵邨先棡</h2>
+                    
+                    <!-- Metrics Grid -->
+                    <div id="metricsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        <!-- Metrics will be inserted here -->
+                    </div>
+
+                    <!-- Download Buttons -->
+                    <div class="flex space-x-4">
+                        <button id="downloadVideo" 
+                                class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">
+                            蜍慕判繝繧ｦ繝ｳ繝ｭ繝ｼ繝・
+                        </button>
+                        <button id="downloadJSON" 
+                                class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700">
+                            JSON繝繧ｦ繝ｳ繝ｭ繝ｼ繝・
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Container -->
+            <div id="errorContainer" class="hidden">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-red-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆</h3>
+                            <div id="errorMessage" class="mt-2 text-sm text-red-700"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

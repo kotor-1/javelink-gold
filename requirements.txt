@@ -1,0 +1,16 @@
+﻿# Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Computer Vision
+opencv-python-headless==4.9.0.80
+numpy==1.24.3
+
+# Deep Learning (Optional - for full YOLOv8 support)
+# ultralytics==8.1.0
+# torch==2.1.2
+# torchvision==0.16.2
+
+# File handling
+aiofiles==23.2.1

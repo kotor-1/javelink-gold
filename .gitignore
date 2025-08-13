@@ -1,0 +1,36 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+uploads/
+outputs/
+*.mp4
+*.avi
+*.mov
+models/*.pt
+models/*.onnx
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
