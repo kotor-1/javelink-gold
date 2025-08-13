@@ -1,59 +1,23 @@
-from fastapi import FastAPI, File, UploadFile, Form
+﻿from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-import numpy as np
 import os
-import logging
 
-# ロギング設定
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+app = FastAPI(title="Javelink Gold")
 
-app = FastAPI(title="Javelink Gold - Motion Analysis")
-
-# CORS設定
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ヘルスチェック
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "service": "Javelink Gold"}
-
-def analyze_video_demo(filename: str):
-    """デモ用の分析結果を生成"""
-    # ランダムな値を生成（デモ用）
-    return {
-        "filename": filename,
-        "fps": 30,
-        "frames": 150,
-        "resolution": "1920x1080",
-        "release_angle": 34.8 + np.random.uniform(-2, 2),
-        "release_speed": 27.5 + np.random.uniform(-1, 1),
-        "release_height": 2.05 + np.random.uniform(-0.1, 0.1),
-        "plant_time": 0.22 + np.random.uniform(-0.02, 0.02),
-        "hip_shoulder_separation": 45 + np.random.uniform(-5, 5),
-        "foot_angle": 12 + np.random.uniform(-3, 3)
-    }
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def root():
-    return """
+    html_content = '''
+    <!DOCTYPE html>
     <html>
     <head>
         <title>Javelink Gold</title>
         <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
                 font-family: Arial, sans-serif;
                 background: linear-gradient(135deg, #FFD700, #FFA500);
                 min-height: 100vh;
+                margin: 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
@@ -62,40 +26,31 @@ async def root():
                 background: white;
                 padding: 40px;
                 border-radius: 20px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
                 max-width: 500px;
                 width: 90%;
             }
             h1 {
                 color: #FF8C00;
                 text-align: center;
-                margin-bottom: 30px;
-                font-size: 32px;
             }
             form {
                 display: flex;
                 flex-direction: column;
-                gap: 20px;
+                gap: 15px;
             }
-            label {
-                color: #333;
-                font-weight: bold;
-            }
-            input, select {
+            input, select, button {
                 padding: 12px;
-                border: 2px solid #FFD700;
                 border-radius: 8px;
+                border: 2px solid #FFD700;
                 font-size: 14px;
             }
             button {
                 background: linear-gradient(135deg, #FFD700, #FFA500);
                 color: white;
                 border: none;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: bold;
                 cursor: pointer;
+                font-weight: bold;
             }
             button:hover {
                 opacity: 0.9;
@@ -105,48 +60,34 @@ async def root():
     <body>
         <div class="container">
             <h1>🎯 Javelink Gold</h1>
-            <form action="/api/analyze" method="post" enctype="multipart/form-data">
-                <div>
-                    <label>動画ファイル</label>
-                    <input type="file" name="file" accept=".mp4,.mov,.avi" required>
-                </div>
-                <div>
-                    <label>撮影アングル</label>
-                    <select name="view" required>
-                        <option value="side">横から</option>
-                        <option value="rear">後ろから</option>
-                    </select>
-                </div>
-                <div>
-                    <label>利き腕</label>
-                    <select name="handedness" required>
-                        <option value="right">右</option>
-                        <option value="left">左</option>
-                    </select>
-                </div>
+            <p style="text-align: center; color: #666;">投擲動作分析システム</p>
+            <form action="/analyze" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".mp4,.mov,.avi" required>
+                <select name="view" required>
+                    <option value="side">横から撮影</option>
+                    <option value="rear">後ろから撮影</option>
+                </select>
+                <select name="handedness" required>
+                    <option value="right">右利き</option>
+                    <option value="left">左利き</option>
+                </select>
                 <button type="submit">分析開始</button>
             </form>
         </div>
     </body>
     </html>
-    """
+    '''
+    return HTMLResponse(content=html_content)
 
-@app.post("/api/analyze")
+@app.post("/analyze")
 async def analyze(
     file: UploadFile = File(...),
     view: str = Form(...),
     handedness: str = Form(...)
 ):
-    # ファイルサイズチェック
-    contents = await file.read()
-    if len(contents) > 10 * 1024 * 1024:
-        return HTMLResponse("<h1>ファイルが大きすぎます（最大10MB）</h1>", status_code=413)
-    
-    # デモ分析を実行
-    result = analyze_video_demo(file.filename)
-    
-    # 結果表示
-    html = f"""
+    # デモ結果を返す
+    html_content = f'''
+    <!DOCTYPE html>
     <html>
     <head>
         <title>分析結果</title>
@@ -166,7 +107,6 @@ async def analyze(
             h1 {{
                 color: #FF8C00;
                 text-align: center;
-                margin-bottom: 30px;
             }}
             .metric {{
                 background: #f9f9f9;
@@ -174,10 +114,6 @@ async def analyze(
                 margin: 10px 0;
                 border-radius: 10px;
                 border-left: 4px solid #FFD700;
-            }}
-            .label {{
-                color: #666;
-                font-size: 14px;
             }}
             .value {{
                 font-size: 24px;
@@ -199,35 +135,30 @@ async def analyze(
     <body>
         <div class="container">
             <h1>分析結果</h1>
-            <p style="text-align: center; color: #666;">ファイル: {result["filename"]}</p>
-            
+            <p style="text-align: center;">ファイル: {file.filename}</p>
             <div class="metric">
-                <div class="label">リリース角度</div>
-                <div class="value">{result["release_angle"]:.1f}°</div>
+                <div>リリース角度</div>
+                <div class="value">34.8°</div>
             </div>
-            
             <div class="metric">
-                <div class="label">リリース速度</div>
-                <div class="value">{result["release_speed"]:.1f} m/s</div>
+                <div>リリース速度</div>
+                <div class="value">27.5 m/s</div>
             </div>
-            
             <div class="metric">
-                <div class="label">リリース高</div>
-                <div class="value">{result["release_height"]:.2f} m</div>
+                <div>リリース高</div>
+                <div class="value">2.05 m</div>
             </div>
-            
-            <div class="metric">
-                <div class="label">ブロック時間</div>
-                <div class="value">{result["plant_time"]:.2f} 秒</div>
-            </div>
-            
             <a href="/">もう一度分析</a>
         </div>
     </body>
     </html>
-    """
-    return HTMLResponse(content=html)
+    '''
+    return HTMLResponse(content=html_content)
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
